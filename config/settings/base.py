@@ -11,10 +11,17 @@ BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 APPS_DIR = BASE_DIR / "dinedeside"
 env = environ.Env()
 
-READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=False)
-if READ_DOT_ENV_FILE:
-    # OS environment variables take precedence over variables from .env
-    env.read_env(str(BASE_DIR / ".env"))
+ROOT_DIR = environ.Path(__file__) - 3  # __init__.py/components/settings/config/<service>
+
+env_file = env.ENVIRON.get('DOT_ENV_FILE', None)
+if not env_file:
+    env_file = str(ROOT_DIR.path('.env'))
+
+try:
+    with open(env_file, mode='r', encoding='utf-8') as f:
+        env.read_env(f)
+except FileNotFoundError:
+    pass
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -46,7 +53,25 @@ LOCALE_PATHS = [str(BASE_DIR / "locale")]
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
-DATABASES = {"default": env.db("DATABASE_URL")}
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env.str('POSTGRES_DB'),
+        'USER': env.str('POSTGRES_USER'),
+        'PASSWORD': env.str('POSTGRES_PASSWORD'),
+        'HOST': env.str('DJANGO_DATABASE_HOST'),
+        'PORT': env.int('DJANGO_DATABASE_PORT'),
+        'CONN_MAX_AGE': env.int('CONN_MAX_AGE', default=60),
+        'OPTIONS': {
+            # Время установки подключения
+            'connect_timeout': 10,
+            # Максимальное время выполнения запроса
+            'options': '-c statement_timeout=15000ms',
+        },
+    },
+}
+
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -86,7 +111,7 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
-    "dinedeside.users",
+    "apps.users",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -95,7 +120,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 # MIGRATIONS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#migration-modules
-MIGRATION_MODULES = {"sites": "dinedeside.contrib.sites.migrations"}
+MIGRATION_MODULES = {"sites": "contrib.sites.migrations"}
 
 # AUTHENTICATION
 # ------------------------------------------------------------------------------
@@ -190,7 +215,6 @@ TEMPLATES = [
                 "django.template.context_processors.static",
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
-                "dinedeside.users.context_processors.allauth_settings",
             ],
         },
     },
@@ -315,13 +339,7 @@ ACCOUNT_EMAIL_REQUIRED = True
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # https://docs.allauth.org/en/latest/account/configuration.html
-ACCOUNT_ADAPTER = "dinedeside.users.adapters.AccountAdapter"
-# https://docs.allauth.org/en/latest/account/forms.html
-ACCOUNT_FORMS = {"signup": "dinedeside.users.forms.UserSignupForm"}
-# https://docs.allauth.org/en/latest/socialaccount/configuration.html
-SOCIALACCOUNT_ADAPTER = "dinedeside.users.adapters.SocialAccountAdapter"
-# https://docs.allauth.org/en/latest/socialaccount/configuration.html
-SOCIALACCOUNT_FORMS = {"signup": "dinedeside.users.forms.UserSocialSignupForm"}
+
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
